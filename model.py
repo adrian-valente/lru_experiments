@@ -1,4 +1,4 @@
-from typing import Callable, List
+from typing import Callable, List, Union
 
 import torch
 import torch.nn as nn
@@ -107,21 +107,29 @@ class DeepLRUModel(nn.Module):
                  d_hidden: int,
                  depth: int,
                  internal_widths: List[int],
-                 output_widths: List[int] = None,
+                 output_widths: Union[int, List[int]] = None,
                  non_linearity: Callable[[torch.Tensor], torch.Tensor] = F.relu,
                  skip_connection: bool = False
                  ) -> None:
         super().__init__()
         self.depth = depth
-        
-        if output_widths is None:
-            output_widths = internal_widths
+        self.non_linearity = non_linearity
         
         layers = []
-        for i in range(depth-1):
-            layers.append(SequenceLayer(d_in, d_hidden, internal_widths, non_linearity, skip_connection))
-        layers.append(SequenceLayer(d_in, d_hidden, output_widths, non_linearity, skip_connection))
+        layers.append(SequenceLayer(d_in, d_hidden, internal_widths, non_linearity, skip_connection))
+        d_in_internal = internal_widths[-1]
+        for i in range(1, depth):
+            layers.append(SequenceLayer(d_in_internal, d_hidden, internal_widths, non_linearity, skip_connection))
         self.layers = nn.ModuleList(layers)
+            
+        self.output_layers = []
+        if output_widths is not None:
+            if isinstance(output_widths, int):
+                output_widths = [output_widths]
+            output_widths.insert(0, internal_widths[-1])
+            for i in range(len(output_widths)-1):
+                self.output_layers.append(nn.Linear(output_widths[i], output_widths[i+1]))
+            self.output_layers = nn.ModuleList(self.output_layers)
         
     def forward(self, u: torch.Tensor, init_states: List[torch.Tensor] = None) -> torch.Tensor:
         y = u
@@ -129,10 +137,17 @@ class DeepLRUModel(nn.Module):
             assert len(init_states) == self.depth
         for i, layer in enumerate(self.layers):
             y = layer(y, init_states[i] if init_states is not None else None)
+            
+        if len(self.output_layers) > 0:
+            for layer in self.output_layers[:-1]:
+                y = layer(y)
+                y = self.non_linearity(y)
+            y = self.output_layers[-1](y)
+            
         return y
         
         
-class ModelDS(nn.Module):
+class DSModel(nn.Module):
     
     def __init__(self,
                  d_ds: int,
@@ -142,23 +157,43 @@ class ModelDS(nn.Module):
                  internal_widths: List[int],
                  encoder_widths: List[int],
                  encoder_non_linearity: Callable[[torch.Tensor], torch.Tensor] = F.relu,
-                 output_widths: List[int] = None,
+                 output_widths: Union[int, List[int]] = None,
                  lru_kwargs: dict = None
                  ) -> None:
         super().__init__()
         self.d_ds = d_ds
         self.d_in = d_in
+        self.d_hidden = d_hidden
+        self.depth = depth
         self.encoder_non_linearity = encoder_non_linearity
+        
+        # Some validity checks
+        assert encoder_widths[-1] == (d_hidden * depth), "Encoder output width must be equal to d_hidden * depth"
+        if output_widths is not None:
+            assert output_widths[-1] == d_ds, "Last output width must be equal to d_ds"
+        else:
+            if internal_widths[-1] != d_ds:
+                output_widths = d_ds
         
         encoder_layers = []
         encoder_widths.insert(0, d_ds)
-        assert encoder_widths[-1] == (d_hidden * depth), "Encoder output width must be equal to d_hidden * depth"
         for i in range(len(encoder_widths)-1):
             encoder_layers.append(nn.Linear(encoder_widths[i], encoder_widths[i+1]))
         self.encoder_layers = nn.ModuleList(encoder_layers)
         self.lru_model = DeepLRUModel(d_in, d_hidden, depth, internal_widths, output_widths, **lru_kwargs)
         
-    def forward(self, u: torch.Tensor, init_states: List[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, u: torch.Tensor, init_states: torch.Tensor = None) -> torch.Tensor:
+        if init_states is not None:
+            h0s = init_states
+            for layer in self.encoder_layers[:-1]:
+                h0s = self.encoder_non_linearity(layer(h0s))
+            h0s = self.encoder_layers[-1](h0s)
+            h0s = torch.split(h0s, self.d_hidden, dim=1)
+        else:
+            h0s = None
+            
+        y = self.lru_model(u, h0s)
+        return y
         
         
 

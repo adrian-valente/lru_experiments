@@ -66,15 +66,32 @@ class TestSequenceModel(unittest.TestCase):
 class TestDeepLRUModel(unittest.TestCase):
     
     def test_init(self):
-        net = model.DeepLRUModel(1, 4, 3, [1, 2, 1], [3, 10])
+        net = model.DeepLRUModel(1, 4, 3, [1, 2, 1], [10])
         net = model.DeepLRUModel(2, 3, 1, [4, 5, 6])
         
     def test_forward(self):
-        net = model.DeepLRUModel(1, 4, 3, [1, 2, 1], [3, 10])
+        net = model.DeepLRUModel(1, 4, 3, [1, 2, 2], [10])
         inputs = torch.Tensor([[0., 0, 1, 1, 0], [1., 1, 0, 0, 0]]).unsqueeze(2)
         y = net(inputs)
         assert y.shape == (inputs.shape[0], inputs.shape[1], 10)
         assert y.dtype == inputs.dtype
+
+
+class TestDSModel(unittest.TestCase):
+    
+    def test_init(self):
+        net = model.DSModel(3, 1, 128, 2, [56, 56], [256, 256], output_widths=[3], lru_kwargs={"skip_connection": True})
+        net = model.DSModel(3, 1, 128, 2, [56, 56], [256, 256], lru_kwargs={"skip_connection": True})
+    
+    def test_forward(self):
+        ds_dim = 3
+        net = model.DSModel(ds_dim, 1, 128, 2, [56, 56], [256, 256], output_widths=[ds_dim], lru_kwargs={"skip_connection": True})
+        inputs = torch.zeros(32, 40, 1)
+        init_states = torch.randn(32, ds_dim)
+        y = net(inputs, init_states)
+        assert y.shape == (32, 40, ds_dim)
+        assert y.dtype == inputs.dtype
+
         
 if __name__ == '__main__':
     unittest.main()
