@@ -34,7 +34,7 @@ def limit_cycle(x: torch.Tensor) -> torch.Tensor:
 def plot_potential_1d(simulator: Union[DSModel, Callable[[torch.Tensor], torch.Tensor]],
                      limits: Tuple[float, float],
                      ax: plt.Axes = None,
-                     plot_kwargs: dict = None,
+                     **plot_kwargs: dict,
                      ) -> plt.Axes:
     timesteps = 100
     x0s = torch.linspace(limits[0], limits[1], 100).unsqueeze(1)

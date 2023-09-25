@@ -47,9 +47,9 @@ def fit_ds(timesteps: int,
     trajectories = dslib.simulate_ds(x0s, timesteps, ds_fn)
     u = torch.zeros((n, timesteps, 1))
     if trajectories.isnan().any():
-        nanexamples = torch.where(trajectories.isnan().any(dim=(1, 2)))[0]
+        nanexamples = torch.where(trajectories.isnan().any(dim=1).any(dim=1))[0]
         print(f"Warning: NaNs in {len(nanexamples)} trajectories, removing them")
-        trajectories = trajectories[~trajectories.isnan().any(dim=(1, 2))]
+        trajectories = trajectories[~trajectories.isnan().any(dim=1).any(dim=1)]
     return u, trajectories, x0s
 
 
