@@ -5,7 +5,7 @@ import torch
 
 from typing import Tuple
 
-import model
+import model as modellib
 import tasks
 from train import train
 
@@ -17,6 +17,7 @@ class Experiment:
                  n_examples: int = 5000,
                  model: str = 'DeepLRUModel',
                  d_hidden: int = 128,
+                 d_encoder: int = 64,
                  depth: int = 1,
                  skip_connection: bool = False,
                  lr: float = 1e-3,
@@ -35,16 +36,14 @@ class Experiment:
         # TODO: add more flexibility to define the architecture?
         # TODO: encoder width
         self.model_class = model
-        assert hasattr(model, self.model_class)
-        d_hidden = d_hidden
-        d_encoder = 64
+        assert hasattr(modellib, self.model_class)
         if self.model_class == "DeepLRUModel":
-            self.model = model.DeepLRUModel(self.d_in, d_hidden, depth, [d_hidden, d_hidden], 
+            self.model = modellib.DeepLRUModel(self.d_in, d_hidden, depth, [d_hidden, d_hidden], 
                                             [self.d_out], skip_connection=skip_connection)
         elif self.model_class == "DSModel":
-            self.model = model.DSModel(self.d_in, 1, d_hidden, depth, [d_hidden, d_hidden], 
-                                       [self.d_out], [d_encoder, d_hidden * depth],
-                                       skip_connection=skip_connection)
+            self.model = modellib.DSModel(self.d_in, 1, d_hidden, depth, [d_hidden, d_hidden], 
+                                       [d_encoder, d_hidden * depth], [self.d_out],
+                                       lru_kwargs={"skip_connection": skip_connection})
         
         # Training parameters
         self.lr = lr

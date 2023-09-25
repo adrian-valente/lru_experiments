@@ -35,7 +35,7 @@ flip_flop1 = partial(flip_flop, d=1)
 flip_flop2 = partial(flip_flop, d=2)
 flip_flop3 = partial(flip_flop, d=3)
 
-def simulate_ds(timesteps: int,
+def fit_ds(timesteps: int,
                 ds: str,
                 n: int = 5000,
                 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -46,9 +46,13 @@ def simulate_ds(timesteps: int,
     x0s = torch.randn((n, dims))
     trajectories = dslib.simulate_ds(x0s, timesteps, ds_fn)
     u = torch.zeros((n, timesteps, 1))
+    if trajectories.isnan().any():
+        nanexamples = torch.where(trajectories.isnan().any(dim=(1, 2)))[0]
+        print(f"Warning: NaNs in {len(nanexamples)} trajectories, removing them")
+        trajectories = trajectories[~trajectories.isnan().any(dim=(1, 2))]
     return u, trajectories, x0s
 
 
-double_well = partial(simulate_ds, ds="double_well")
-limit_cycle = partial(simulate_ds, ds="limit_cycle")
+double_well = partial(fit_ds, ds="double_well")
+limit_cycle = partial(fit_ds, ds="limit_cycle")
     

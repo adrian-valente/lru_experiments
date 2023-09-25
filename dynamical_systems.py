@@ -7,10 +7,10 @@ from model import DSModel
 def simulate_ds(x0s: torch.Tensor,
                 timesteps: int,
                 ds: Callable[[torch.Tensor], torch.Tensor],
-                deltaT: float = 0.1,
+                deltaT: float = 0.05,
                 ) -> torch.Tensor:
     x = x0s
-    trajectory = [x0s.clone()]
+    trajectory = []
     for t in range(timesteps):
         x = x + deltaT * ds(x)
         trajectory.append(x.clone())

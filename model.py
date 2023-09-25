@@ -156,8 +156,8 @@ class DSModel(nn.Module):
                  depth: int,
                  internal_widths: List[int],
                  encoder_widths: List[int],
-                 encoder_non_linearity: Callable[[torch.Tensor], torch.Tensor] = F.relu,
                  output_widths: Union[int, List[int]] = None,
+                 encoder_non_linearity: Callable[[torch.Tensor], torch.Tensor] = F.relu,
                  lru_kwargs: dict = None
                  ) -> None:
         super().__init__()
