@@ -1,10 +1,21 @@
+from functools import partial
 from typing import Tuple
 import torch
 
+import dynamical_systems as dslib
+
+tasks = {
+    "flip_flop1": (1, 1),
+    "flip_flop2": (2, 2),
+    "flip_flop3": (3, 3),
+    "double_well": (1, 1),
+    "limit_cycle": (2, 2),
+}
+
 def flip_flop(d: int,
-              timesteps: int,
-              n: int,
-              p: float = 0.05,
+              timesteps: int = 1000,
+              n: int = 5000,
+              p: float = 0.2,
               ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Generate (x, y) data for the flip-flop task.
@@ -19,6 +30,25 @@ def flip_flop(d: int,
         cur = torch.where(x[:, t] != 0, x[:, t], cur)
         y[:, t] = cur
     return x, y
+
+flip_flop1 = partial(flip_flop, d=1)
+flip_flop2 = partial(flip_flop, d=2)
+flip_flop3 = partial(flip_flop, d=3)
+
+def simulate_ds(timesteps: int,
+                ds: str,
+                n: int = 5000,
+                ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    assert ds in dslib.available_ds.keys()
+    dims = dslib.available_ds[ds]
+    ds_fn = getattr(dslib, ds)
     
-    
+    x0s = torch.randn((n, dims))
+    trajectories = dslib.simulate_ds(x0s, timesteps, ds_fn)
+    u = torch.zeros((n, timesteps, 1))
+    return u, trajectories, x0s
+
+
+double_well = partial(simulate_ds, ds="double_well")
+limit_cycle = partial(simulate_ds, ds="limit_cycle")
     

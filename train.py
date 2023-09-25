@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -12,12 +12,31 @@ def train(model: nn.Module,
           test_y: torch.Tensor, 
           n_epochs: int, 
           lr: float,
+          train_x0: torch.Tensor = None,
+          test_x0: torch.Tensor = None,
           batch_size: int = 32,
           compute_accuracy: bool = False,
-          acc_fn: Callable[[torch.Tensor, torch.Tensor], int] = None
+          acc_fn: Callable[[torch.Tensor, torch.Tensor], int] = None,
+          cuda: Union[int, bool] = None,
           ) -> dict:
     if compute_accuracy:
         assert acc_fn is not None
+        
+    if cuda is None or not torch.cuda.is_available():
+        device = torch.device('cpu')
+    else:
+        if cuda is True:
+            cuda = 0
+        device = torch.device(f'cuda:{cuda}')
+    model = model.to(device)
+    train_x = train_x.to(device)
+    train_y = train_y.to(device)
+    test_x = test_x.to(device)
+    test_y = test_y.to(device)
+    if train_x0 is not None:
+        train_x0 = train_x0.to(device)
+    if test_x0 is not None:
+        test_x0 = test_x0.to(device)
     
     optim = torch.optim.Adam(model.parameters(), lr=lr)
     loss_fn = nn.MSELoss()
@@ -39,7 +58,11 @@ def train(model: nn.Module,
             rand_idxes = torch.randint(train_x.shape[0], (batch_size,))
             x = train_x[rand_idxes]
             y = train_y[rand_idxes]
-            preds = model(x)
+            if train_x0 is not None:
+                x0 = train_x0[rand_idxes]
+                preds = model(x, x0)
+            else:
+                preds = model(x)
             loss = loss_fn(preds, y)
             loss.backward()
             optim.step()
@@ -53,7 +76,10 @@ def train(model: nn.Module,
         # test
         model.eval()
         with torch.no_grad():
-            preds = model(test_x)
+            if test_x0 is not None:
+                preds = model(test_x, test_x0)
+            else:
+                preds = model(test_x)
             loss = loss_fn(preds, test_y)
             history["test_loss"].append(loss.item())
             if compute_accuracy:

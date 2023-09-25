@@ -1,6 +1,7 @@
 import unittest
 import torch
 import model
+import train
 
 class TestLRU(unittest.TestCase):
     
@@ -91,6 +92,29 @@ class TestDSModel(unittest.TestCase):
         y = net(inputs, init_states)
         assert y.shape == (32, 40, ds_dim)
         assert y.dtype == inputs.dtype
+        
+        
+class TestTrain(unittest.TestCase):
+    
+    def test_train(self):
+        net = model.DeepLRUModel(1, 10, 1, [10, 10], [1])
+        x_train = torch.zeros(32, 100, 1)
+        y_train = torch.cos(0.1 * torch.arange(100)).tile(32, 1, 1)
+        x_test = x_train.clone()
+        y_test = y_train.clone()
+        train.train(net, x_train, y_train, x_test, y_test, n_epochs=1, lr=1e-3)
+        
+    def test_cuda(self):
+        if not torch.cuda.is_available():
+            print("No CUDA device available, didn't test CUDA training.")
+            return 1
+        net = model.DeepLRUModel(1, 10, 1, [10, 10], [1])
+        x_train = torch.zeros(32, 100, 1)
+        y_train = torch.cos(0.1 * torch.arange(100)).tile(32, 1, 1)
+        x_test = x_train.clone()
+        y_test = y_train.clone()
+        train.train(net, x_train, y_train, x_test, y_test, n_epochs=1, lr=1e-3, cuda=True)
+        print("Tested CUDA.")
 
         
 if __name__ == '__main__':

@@ -21,6 +21,7 @@ class LRU(nn.Module):
         self.r_min = r_min
         self.r_max = r_max
         self.max_phase = max_phase
+        self.device = torch.device('cpu')
         
         self.theta_log = nn.Parameter(torch.empty(d_hidden))
         self.nu_log = nn.Parameter(torch.empty(d_hidden))
@@ -37,7 +38,6 @@ class LRU(nn.Module):
         return torch.exp(-torch.exp(self.nu_log) + 1j * torch.exp(self.theta_log))    
     
     def _init_params(self):
-
         nn.init.uniform_(self.theta_log, a=0, b=self.max_phase)
         
         u = torch.rand((self.d_hidden,))
@@ -63,13 +63,21 @@ class LRU(nn.Module):
             init_states = init_states.unsqueeze(0)
         
         h = init_states.to(torch.cfloat) if init_states is not None \
-                else torch.zeros((u.shape[0], self.d_hidden), dtype=torch.cfloat)
+                else torch.zeros((u.shape[0], self.d_hidden), dtype=torch.cfloat, device=self.device)
         outputs = []
         for t in range(u.shape[1]):
             h = h * diag_lambda + u[:, t].to(torch.cfloat) @ B_norm.T
             y = torch.real(h @ C.T) + u[:, t] @ self.D.T
             outputs.append(y)
         return torch.stack(outputs, dim=1)
+    
+    def to(self, device: Union[str, torch.device]) -> None:
+        if isinstance(device, str):
+            self.device = torch.device(device)
+        elif isinstance(device, torch.device):
+            self.device = device
+        super().to(device)
+        return self
     
 
 class SequenceLayer(nn.Module):
@@ -99,6 +107,11 @@ class SequenceLayer(nn.Module):
             y = y + u
         return y
     
+    def to(self, device: Union[str, torch.device]) -> None:
+        self.LRU.to(device)
+        super().to(device)
+        return self
+    
     
 class DeepLRUModel(nn.Module):
     
@@ -122,6 +135,7 @@ class DeepLRUModel(nn.Module):
             layers.append(SequenceLayer(d_in_internal, d_hidden, internal_widths, non_linearity, skip_connection))
         self.layers = nn.ModuleList(layers)
             
+        # Output layers define a final Linear layer or MLP that can be added after final LRU layer
         self.output_layers = []
         if output_widths is not None:
             if isinstance(output_widths, int):
@@ -146,6 +160,11 @@ class DeepLRUModel(nn.Module):
             
         return y
         
+    def to(self, device: Union[str, torch.device]) -> None:
+        for layer in self.layers:
+            layer.to(device)
+        super().to(device)
+        return self
         
 class DSModel(nn.Module):
     
@@ -194,6 +213,11 @@ class DSModel(nn.Module):
             
         y = self.lru_model(u, h0s)
         return y
+    
+    def to(self, device: Union[str, torch.device]) -> None:
+        self.lru_model.to(device)
+        super().to(device)
+        return self
         
         
 
