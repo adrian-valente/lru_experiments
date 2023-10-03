@@ -11,7 +11,7 @@ def simulate_ds(x0s: torch.Tensor,
                 ) -> torch.Tensor:
     x = x0s
     trajectory = []
-    for t in range(timesteps):
+    for _ in range(timesteps):
         x = x + deltaT * ds(x)
         trajectory.append(x.clone())
     return torch.stack(trajectory, dim=1)
@@ -23,7 +23,7 @@ available_ds = {
 }
 
 def double_well(x: torch.Tensor) -> torch.Tensor:
-    return -4 * x**3 + 4 * x
+    return -4 * x**3 + 6 * x
 
 
 def limit_cycle(x: torch.Tensor) -> torch.Tensor:

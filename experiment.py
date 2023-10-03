@@ -1,4 +1,5 @@
 import argparse
+from functools import partial
 import json
 import matplotlib.pyplot as plt
 import torch
@@ -19,15 +20,18 @@ class Experiment:
                  d_hidden: int = 128,
                  d_encoder: int = 64,
                  depth: int = 1,
-                 skip_connection: bool = False,
+                 skip_connection: bool = True,
                  lr: float = 1e-3,
                  epochs: int = 10,
                  model_name: str = "model",
+                 task_kwargs: dict = {},
+                 model_kwargs: dict = {},
                  ) -> None:
         # Task parameters
         assert task in tasks.tasks.keys()
         self.task = task
-        self.task_fn = getattr(tasks, task)
+        self.task_fn = partial(getattr(tasks, task), **task_kwargs) if task_kwargs is not None \
+                        else getattr(tasks, task)
         self.timesteps = timesteps
         self.N = n_examples
         self.d_in, self.d_out = tasks.tasks[task]
@@ -38,12 +42,12 @@ class Experiment:
         self.model_class = model
         assert hasattr(modellib, self.model_class)
         if self.model_class == "DeepLRUModel":
-            self.model = modellib.DeepLRUModel(self.d_in, d_hidden, depth, [d_hidden, d_hidden], 
-                                            [self.d_out], skip_connection=skip_connection)
+            self.model = modellib.DeepLRUModel(self.d_in, d_hidden, depth, [d_hidden, d_hidden, d_hidden], 
+                                            [self.d_out], skip_connection=skip_connection, **model_kwargs)
         elif self.model_class == "DSModel":
             self.model = modellib.DSModel(self.d_in, 1, d_hidden, depth, [d_hidden, d_hidden], 
                                        [d_encoder, d_hidden * depth], [self.d_out],
-                                       lru_kwargs={"skip_connection": skip_connection})
+                                       lru_kwargs={"skip_connection": skip_connection}, **model_kwargs)
         
         # Training parameters
         self.lr = lr
@@ -66,10 +70,10 @@ class Experiment:
         y_train, y_test = y[:int(p_train*N)], y[int(p_train*N):]
         if len(data) == 3:
             x0_train, x0_test = x0[:int(p_train*N)], x0[int(p_train*N):]
-        return x_train, y_train, x_test, y_test, x0_train, x0_test
+        return x_train, y_train, x0_train, x_test, y_test, x0_test
     
     def train(self) -> None:
-        x_train, y_train, x_test, y_test, x0_train, x0_test = self.generate_data()
+        x_train, y_train, x0_train, x_test, y_test, x0_test = self.generate_data()
         self.hist = train(self.model, x_train, y_train, x_test, y_test, 
                           n_epochs=self.n_epochs, lr=self.lr, batch_size=32,
                           train_x0=x0_train, test_x0=x0_test)
@@ -100,7 +104,7 @@ class Experiment:
         self.timesteps = exp_dict["timesteps"]
         self.N = exp_dict["N"]
         self.model_class = exp_dict["model"]
-        model_builder = getattr(model, self.model_class)
+        model_builder = getattr(self.model, self.model_class)
         self.model = model_builder(**exp_dict["model_architecture"])
         self.lr = exp_dict["lr"]
         self.n_epochs = exp_dict["n_epochs"]

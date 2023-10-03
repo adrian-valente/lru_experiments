@@ -1,6 +1,7 @@
 # Specifics
-results
-saved_models
+results/
+saved_models/
+misc/
 
 # Macintosh
 .DS_Store

@@ -36,14 +36,17 @@ flip_flop2 = partial(flip_flop, d=2)
 flip_flop3 = partial(flip_flop, d=3)
 
 def fit_ds(timesteps: int,
-                ds: str,
-                n: int = 5000,
-                ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+           ds: str,
+           n: int = 5000,
+           clip_val: float = None,
+           ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     assert ds in dslib.available_ds.keys()
     dims = dslib.available_ds[ds]
     ds_fn = getattr(dslib, ds)
     
     x0s = torch.randn((n, dims))
+    if clip_val is not None:
+        x0s = torch.clamp(x0s, -clip_val, clip_val)
     trajectories = dslib.simulate_ds(x0s, timesteps, ds_fn)
     u = torch.zeros((n, timesteps, 1))
     if trajectories.isnan().any():

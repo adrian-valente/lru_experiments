@@ -70,6 +70,9 @@ class LRU(nn.Module):
             outputs.append(y)
         return torch.stack(outputs, dim=1)
     
+    def __repr__(self):
+        return f"LRU(d_in={self.d_in}, d_hidden={self.d_hidden}, d_out={self.d_out})"
+    
 
 class SequenceLayer(nn.Module):
     
@@ -83,6 +86,9 @@ class SequenceLayer(nn.Module):
         super().__init__()
         self.layer_widths = layer_widths
         self.non_linearity = non_linearity
+        self.d_out = layer_widths[-1]
+        if skip_connection and d_in != self.d_out:
+            raise ValueError("Skip connection requires d_in == d_out")
         self.skip_connection = skip_connection
         
         self.LRU = LRU(d_in, d_hidden, layer_widths[0])
